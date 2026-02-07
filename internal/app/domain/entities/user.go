@@ -2,60 +2,62 @@ package entities
 
 import (
 	"Hog-auth/internal/app/domain/vo"
+	"fmt"
 
 	"github.com/google/uuid"
 )
 
 type User struct {
-	id          uuid.UUID
-	role        vo.Role
-	email       *vo.Email
-	phoneNumber *vo.PhoneNumber
+	id                    uuid.UUID
+	refreshTokenSessionId uuid.UUID
+	userType              vo.UserType
+	credentials           []UserCredential
 }
 
-func (u User) ID() uuid.UUID {
+func (u *User) ID() uuid.UUID {
 	return u.id
 }
 
-func (u User) Role() vo.Role {
-	return u.role
+func (u *User) UserType() vo.UserType {
+	return u.userType
 }
 
-func (u User) Email() *vo.Email {
-	return u.email
+func (u *User) RefreshTokenSessionId() uuid.UUID {
+	return u.refreshTokenSessionId
 }
 
-func (u User) PhoneNumber() *vo.PhoneNumber {
-	return u.phoneNumber
+func (u *User) Credentials() []UserCredential {
+	return append([]UserCredential{}, u.credentials...)
 }
 
-type UserOption func(*User)
-
-func WithEmail(email vo.Email) UserOption {
-	return func(u *User) {
-		u.email = &email
-	}
-}
-
-func WithPhoneNumber(phoneNumber vo.PhoneNumber) UserOption {
-	return func(u *User) {
-		u.phoneNumber = &phoneNumber
-	}
-}
-
-func NewUser(id uuid.UUID, role vo.Role, opts ...UserOption) (*User, error) {
+func NewUser(id uuid.UUID, role vo.UserType, credentials UserCredential) (*User, error) {
 	if id == uuid.Nil {
 		id = uuid.New()
 	}
 
 	u := &User{
-		id:   id,
-		role: role,
+		id:       id,
+		userType: role,
 	}
 
-	for _, opt := range opts {
-		opt(u)
+	if err := u.AddCredential(credentials); err != nil {
+		return nil, err
 	}
 
 	return u, nil
+}
+
+func (u *User) AddCredential(cred UserCredential) error {
+	if cred.UserId() != u.id {
+		return fmt.Errorf("credential belongs to another user")
+	}
+
+	for _, c := range u.Credentials() {
+		if c.Credential() == cred.Credential() {
+			return fmt.Errorf("credential type already exists")
+		}
+	}
+
+	u.credentials = append(u.credentials, cred)
+	return nil
 }

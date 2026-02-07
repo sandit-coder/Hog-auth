@@ -1,23 +1,31 @@
 package auth
 
 import (
-	"Hog-auth/internal/app/adapters/secondary/providers/jwt"
 	"Hog-auth/internal/app/application/dto"
+	"Hog-auth/internal/app/domain/entities"
+	"Hog-auth/internal/app/domain/types"
 	"Hog-auth/internal/app/domain/vo"
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
 )
 
-func (auth *Auth) Verify(verificationDto *dto.Verify, ctx context.Context) (uuid.UUID, *dto.Tokens, error) {
-	handler, ok := auth.strategies[verificationDto.Type]
+func (auth *Auth) Verify(ctx context.Context, verificationDto *dto.Verify) (uuid.UUID, *dto.Tokens, error) {
+	regType, err := types.CredentialTypeFromString(verificationDto.Type)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+
+	normalizer, ok := auth.strategies[regType]
 	if !ok {
 		return uuid.Nil, nil, fmt.Errorf("unknown verification type")
 	}
 
-	role, err := vo.NewRole(verificationDto.Role)
+	userType, err := vo.NewUserType(verificationDto.Role)
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
@@ -31,47 +39,60 @@ func (auth *Auth) Verify(verificationDto *dto.Verify, ctx context.Context) (uuid
 		return uuid.Nil, nil, fmt.Errorf("invalid code")
 	}
 
+	normalizeCredential, err := normalizer.NormalizeCredential(verificationDto.Credential)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+
+	userID := uuid.New()
+	credential := entities.NewUserCredential(uuid.New(), userID, strings.ToLower(verificationDto.Type), normalizeCredential, time.Now())
+
+	user, err := entities.NewUser(uuid.New(), userType, credential)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+
+	err = auth.tx.Do(ctx, func(ctx context.Context) error {
+		_, err := auth.userRepo.Create(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	err = auth.redis.Del(ctx, verificationDto.Credential).Err()
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
 
-	user, err := handler.Verify(verificationDto.Credential, role)
+	tokens, err := auth.jwt.GenerateAuthTokens(userID, userType)
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
 
-	var createdId uuid.UUID
+	refreshTokenHash, err := vo.NewRefreshTokenHash(tokens.RefreshToken)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
 
-	err = auth.trm.Do(ctx, func(ctx context.Context) error {
-		id, err := auth.repo.Create(user, ctx)
+	refreshSession, err := entities.NewRefreshSession(uuid.New(), userID, refreshTokenHash, userType)
+	if err != nil {
+		return uuid.Nil, nil, err
+	}
+
+	err = auth.tx.Do(ctx, func(ctx context.Context) error {
+		err := auth.refreshSessionRepo.Create(ctx, refreshSession)
 		if err != nil {
 			return err
 		}
 
-		createdId = id
 		return nil
 	})
 
-	tokens, err := auth.jwt.GenerateAuthTokens(createdId, role)
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
 
-	err = auth.redis.HSet(ctx, tokens.RefreshToken, map[string]interface{}{
-		UserId: user.ID().String(),
-		Active: Active,
-		Role:   role,
-	}).Err()
-
-	if err != nil {
-		return uuid.Nil, nil, err
-	}
-
-	err = auth.redis.Expire(ctx, tokens.RefreshToken, jwt.ExpireRefreshToken).Err()
-	if err != nil {
-		return uuid.Nil, nil, err
-	}
-
-	return createdId, tokens, nil
+	return userID, tokens, nil
 }

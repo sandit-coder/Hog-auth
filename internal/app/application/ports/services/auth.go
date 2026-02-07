@@ -2,14 +2,15 @@ package services
 
 import (
 	"Hog-auth/internal/app/application/dto"
+
 	"context"
 
 	"github.com/google/uuid"
 )
 
 type Auth interface {
-	Login(loginDto *dto.Login, ctx context.Context) error
-	Verify(verificationDto *dto.Verify, ctx context.Context) (uuid.UUID, *dto.Tokens, error)
-	Logout(refreshToken string, ctx context.Context) error
-	Refresh(refreshToken string, ctx context.Context) (string, error)
+	Login(ctx context.Context, loginDto *dto.Login) error
+	Verify(ctx context.Context, verificationDto *dto.Verify) (uuid.UUID, *dto.Tokens, error)
+	Logout(ctx context.Context, refreshToken string) error
+	Refresh(ctx context.Context, refreshToken string) (string, error)
 }

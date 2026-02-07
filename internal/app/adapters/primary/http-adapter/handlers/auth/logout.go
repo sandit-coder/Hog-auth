@@ -5,13 +5,9 @@ import (
 )
 
 func (handler *Handler) Logout(c fiber.Ctx) error {
-	refreshToken, err := handler.cookie.GetRefreshToken(c)
-	if err != nil {
-		return err
-	}
+	refreshToken := c.Cookies("refresh_token")
 
-	err = handler.service.Logout(refreshToken, c.Context())
-	if err != nil {
+	if err := handler.service.Logout(c.Context(), refreshToken); err != nil {
 		return err
 	}
 

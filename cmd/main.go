@@ -4,6 +4,7 @@ import (
 	"Hog-auth/internal/app/configs"
 	"Hog-auth/internal/bootstrap/di"
 	"Hog-auth/internal/pkg/fiber"
+	"Hog-auth/internal/pkg/logger"
 	"Hog-auth/internal/pkg/postgres"
 	"Hog-auth/internal/pkg/redis"
 	"Hog-auth/internal/pkg/validator"
@@ -15,11 +16,12 @@ func main() {
 	fx.New(
 		configs.Module,
 		validator.Module,
-		redis.Module,
+		logger.Module,
 		postgres.Module,
+		redis.Module,
 		fiber.Module,
 
-		di.ProvidersModule,
+		di.KafkaModule,
 		di.RepositoriesModule,
 		di.ServicesModule,
 		di.HandlersModule,

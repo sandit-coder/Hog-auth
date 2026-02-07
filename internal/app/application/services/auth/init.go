@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"Hog-auth/internal/app/application/ports/provider"
+	"Hog-auth/internal/app/application/ports/publishers"
 	"Hog-auth/internal/app/application/ports/repostiries"
 	"Hog-auth/internal/app/application/ports/services"
-	"Hog-auth/internal/app/application/services/auth/strategy_handlers"
+	"Hog-auth/internal/app/application/services/auth/strategies"
 	"Hog-auth/internal/app/domain/types"
 
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
@@ -12,24 +12,36 @@ import (
 )
 
 type Auth struct {
-	trm   trm.Manager
-	repo  repostiries.User
-	redis *redis.Client
-	jwt   provider.Jwt
+	tx                 trm.Manager
+	userRepo           repostiries.User
+	refreshSessionRepo repostiries.RefreshSession
+	redis              *redis.Client
+	jwt                services.Jwt
+	publisher          publishers.VerificationCode
 
-	strategies map[types.RegistrationType]strategy_handlers.Strategy
+	strategies map[types.CredentialType]strategies.Strategy
 }
 
-func New(trm trm.Manager, repo repostiries.User, jwt provider.Jwt, redis *redis.Client) services.Auth {
-	strategies := map[types.RegistrationType]strategy_handlers.Strategy{
-		types.PhoneRegistrationType: strategy_handlers.NewPhoneStrategy(redis),
-		types.EmailRegistrationType: strategy_handlers.NewEmailStrategy(redis),
+func New(
+	trm trm.Manager,
+	userRepo repostiries.User,
+	refreshSessionRepo repostiries.RefreshSession,
+	jwt services.Jwt,
+	redis *redis.Client,
+	publisher publishers.VerificationCode) services.Auth {
+
+	strategies := map[types.CredentialType]strategies.Strategy{
+		types.PhoneCredentialType: strategies.NewPhoneNumberNormalizer(),
+		types.EmailCredentialType: strategies.NewEmailNormalizer(),
 	}
+
 	return &Auth{
-		trm:        trm,
-		repo:       repo,
-		redis:      redis,
-		jwt:        jwt,
-		strategies: strategies,
+		tx:                 trm,
+		userRepo:           userRepo,
+		refreshSessionRepo: refreshSessionRepo,
+		redis:              redis,
+		jwt:                jwt,
+		publisher:          publisher,
+		strategies:         strategies,
 	}
 }

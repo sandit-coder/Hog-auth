@@ -1,7 +1,7 @@
 package erros
 
 import (
-	domainErr "Hog-auth/internal/app/domain/errors"
+	domainErr "Hog-auth/internal/app/application/errors"
 	"context"
 	"errors"
 

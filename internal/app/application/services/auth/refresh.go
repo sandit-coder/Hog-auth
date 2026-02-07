@@ -8,14 +8,14 @@ import (
 	"github.com/google/uuid"
 )
 
-func (auth *Auth) Refresh(refreshToken string, ctx context.Context) (string, error) {
+func (auth *Auth) Refresh(ctx context.Context, refreshToken string) (string, error) {
 
 	exists, err := auth.redis.Exists(ctx, refreshToken).Result()
 	if err != nil {
 		return "", fmt.Errorf("redis error: %w", err)
 	}
 	if exists == 0 {
-		return "", fmt.Errorf("refresh token not found")
+		return "", fmt.Errorf("session not found")
 	}
 
 	vals, err := auth.redis.HMGet(ctx, refreshToken, UserId, Active, Role).Result()
@@ -28,7 +28,7 @@ func (auth *Auth) Refresh(refreshToken string, ctx context.Context) (string, err
 		return "", fmt.Errorf("invalid revoked field")
 	}
 	if revokedStr == Revoked {
-		return "", fmt.Errorf("refresh token revoked")
+		return "", fmt.Errorf("session revoked")
 	}
 
 	userID, err := uuid.Parse(vals[1].(string))
@@ -41,7 +41,7 @@ func (auth *Auth) Refresh(refreshToken string, ctx context.Context) (string, err
 		return "", fmt.Errorf("invalid role")
 	}
 
-	voRole, err := vo.NewRole(role)
+	voRole, err := vo.NewUserType(role)
 	if err != nil {
 		return "", fmt.Errorf("invalid role")
 	}

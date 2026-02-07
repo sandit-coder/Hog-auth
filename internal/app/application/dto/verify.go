@@ -1,11 +1,7 @@
 package dto
 
-import (
-	"Hog-auth/internal/app/domain/types"
-)
-
 type Verify struct {
-	Type       types.RegistrationType
+	Type       string `json:"type"`
 	Code       string `json:"code"`
 	Role       string `json:"role"`
 	Credential string `json:"credentials"`

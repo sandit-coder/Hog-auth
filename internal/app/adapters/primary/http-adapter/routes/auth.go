@@ -7,13 +7,11 @@ import (
 )
 
 func AppendAuth(app *fiber.App, h *auth.Handler) {
-	api := app.Group("/auth/v1")
+	api := app.Group("/jwt/v1")
 
-	api.Post("/login/email", h.RegisterByEmail)
-	api.Post("/login/phone", h.RegisterByPhoneNumber)
+	api.Post("/login", h.Login)
 
-	api.Post("/verification/email", h.EmailVerification)
-	api.Post("/verification/phone", h.EmailVerification)
+	api.Post("/verification", h.Verification)
 
 	api.Post("/refresh", h.Refresh)
 	api.Post("/logout", h.Logout)

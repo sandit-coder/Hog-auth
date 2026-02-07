@@ -5,14 +5,14 @@ import (
 	"fmt"
 )
 
-func (auth *Auth) Logout(refreshToken string, ctx context.Context) error {
+func (auth *Auth) Logout(ctx context.Context, refreshToken string) error {
 	if refreshToken == "" {
-		return fmt.Errorf("refresh token is empty")
+		return fmt.Errorf("session session is empty")
 	}
 
 	vals, err := auth.redis.HMGet(ctx, refreshToken, UserId, Active).Result()
 	if err != nil {
-		return fmt.Errorf("invalid refresh token")
+		return fmt.Errorf("invalid session session")
 	}
 
 	_, ok := vals[0].(string)

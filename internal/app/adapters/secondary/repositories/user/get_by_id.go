@@ -1,8 +1,8 @@
 package user
 
 import (
+	appErr "Hog-auth/internal/app/application/errors"
 	"Hog-auth/internal/app/domain/entities"
-	domainErr "Hog-auth/internal/app/domain/errors"
 	"context"
 	"database/sql"
 	"errors"
@@ -11,21 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
-func (repo *Repository) GetById(id uuid.UUID, ctx context.Context) (*entities.User, error) {
+func (r *Repository) GetById(ctx context.Context, id uuid.UUID) (*entities.User, error) {
 	query := "SELECT * FROM users WHERE id = %1"
 
 	var user entities.User
 
-	if err := repo.db.QueryRow(ctx, query, id).Scan(
+	if err := r.db.QueryRow(ctx, query, id).Scan(
 		user.ID(),
-		user.Role(),
-		user.Email(),
-		user.PhoneNumber(),
+		user.UserType(),
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("auth: %w", domainErr.NotFound)
+			return nil, fmt.Errorf("jwt: %w", appErr.NotFound)
 		}
-		return nil, fmt.Errorf("auth: %w", err)
+		return nil, fmt.Errorf("jwt: %w", err)
 	}
 
 	return &user, nil

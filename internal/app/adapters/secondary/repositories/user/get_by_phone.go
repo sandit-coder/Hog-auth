@@ -1,8 +1,8 @@
 package user
 
 import (
+	appErr "Hog-auth/internal/app/application/errors"
 	"Hog-auth/internal/app/domain/entities"
-	domainErr "Hog-auth/internal/app/domain/errors"
 	"Hog-auth/internal/app/domain/vo"
 	"context"
 	"database/sql"
@@ -10,21 +10,25 @@ import (
 	"fmt"
 )
 
-func (repo *Repository) GetByPhoneNumber(phoneNumber vo.PhoneNumber, ctx context.Context) (*entities.User, error) {
-	query := "SELECT * FROM users WHERE phone_number = %1"
+func (r *Repository) GetByPhoneNumber(ctx context.Context, phoneNumber vo.PhoneNumber) (*entities.User, error) {
+	query := `SELECT u.id, u.user_type
+				FROM users u
+				JOIN user_credentials c ON c.user_id = u.id
+				WHERE u.deleted_at IS NULL
+				AND c.deleted_at IS NULL
+				AND c.type=$1
+				AND c.identifier=$2`
 
 	var user entities.User
 
-	if err := repo.db.QueryRow(ctx, query, phoneNumber.Value).Scan(
+	if err := r.db.QueryRow(ctx, query, phoneNumber.Value).Scan(
 		user.ID(),
-		user.Role(),
-		user.Email(),
-		user.PhoneNumber(),
+		user.UserType(),
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("auth: %w", domainErr.NotFound)
+			return nil, fmt.Errorf("jwt: %w", appErr.NotFound)
 		}
-		return nil, fmt.Errorf("auth: %w", err)
+		return nil, fmt.Errorf("jwt: %w", err)
 	}
 
 	return &user, nil
